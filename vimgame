@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+
+CUR="tmp"
+LVL=$1
+
+if [ "$1" == "highscore" ]; then
+	echo "HIGHSCORES:"
+	wc -c */HIGHSCORE 2>/dev/null || echo "None"
+	exit 0
+elif [ "$1" == "dump" ]; then
+	for f in `ls */HIGHSCORE`; do
+		wc -c $f
+		hd $f
+	done
+	exit 0
+elif [ "$1" == "reset" ]; then
+	echo "Resetting highscores"
+	rm -f */HIGHSCORE
+	exit 0
+elif [ "$1" == "help" -o "$1" == "-h"  -o "$1" == "--help" -o -z "$1" ];
+then
+	echo -e "Usage:\n"\
+"\t$0 <level>\tPlay the game, where level is a directory\n" \
+"\t$0 highscore\tShow highscores\n" \
+"\t$0 dump\t\tDump highscores and awe us with your VI skill\n" \
+"\t$0 reset\t\tReset highscores\n" \
+"\t$0 help\t\tShow this help\n" \
+"\nGame Vim learning."
+	exit 0
+fi
+
+if [ ! -d "$LVL" ]; then
+	echo "Level $LVL not found"
+	exit 1
+fi
+
+## PREPARE
+if [ -d $CUR ]; then
+	rm -f $CUR/*
+else
+	mkdir $CUR
+fi
+cp $LVL/BAD $CUR/
+cat $LVL/DESCR
+if [ -e $LVL/HIGHSCORE ]; then
+	HIGH=`wc -c $LVL/HIGHSCORE |awk '{print $1}'`
+	echo "Highscore:" $HIGH "key presses."
+fi
+read -p "Press enter to continue... " 
+
+## -i NONE: don't use .viminfo, our cursor will always start at 0,0
+## -W $CUR/log: log keystrokes
+vim -i NONE -W $CUR/log $CUR/BAD
+
+if diff -q $LVL/GOOD $CUR/BAD >/dev/null; then
+	SCORE=`wc -c $CUR/log |awk '{print $1}'`
+	echo "SUCCESS! your score:" $SCORE "key presses."
+	if [ ! -e $LVL/HIGHSCORE ]; then
+		echo "Saved as high score"
+		cp $CUR/log $LVL/HIGHSCORE
+	else
+		HIGH=`wc -c $LVL/HIGHSCORE |awk '{print $1}'`
+		if [ $HIGH -gt $SCORE ]; then
+			cp $CUR/log $LVL/HIGHSCORE
+			echo "You've beat the highscore of" $HIGH!
+		fi
+	fi
+else
+	echo -e "\nSorry, your edits did not meet our expectations. Please"\
+		"run 'diff $LVL/GOOD $CUR/BAD' to see what you've missed."
+fi
